@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="supply_chain.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="0"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="2092"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="orders" custom_title="0" dock_id="1" table="4,6:mainorders"/><dock_state state="000000ff00000000fd00000001000000020000033b00000275fc0100000001fb000000160064006f0063006b00420072006f007700730065003101000000000000033b0000011700ffffff0000033b0000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="Department_Order" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="163"/><column index="2" value="92"/><column index="3" value="112"/><column index="4" value="57"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="customers" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="77"/><column index="2" value="115"/><column index="3" value="109"/><column index="4" value="163"/><column index="5" value="95"/><column index="6" value="156"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="orders" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="55"/><column index="2" value="147"/><column index="3" value="124"/><column index="4" value="114"/><column index="5" value="210"/><column index="6" value="249"/><column index="7" value="288"/><column index="8" value="124"/><column index="9" value="65"/><column index="10" value="164"/><column index="11" value="117"/><column index="12" value="156"/><column index="13" value="156"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="products" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="2" value="300"/><column index="3" value="93"/><column index="4" value="74"/><column index="5" value="163"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="Top Product">SELECT 
+    p.product_name,
+	p.category_name,
+    SUM(od.order_profit_per_order) as total_profit,
+    COUNT(od.order_id) as total_orders,
+    SUM(od.order_item_quantity) as total_quantity_sold
+FROM products p
+JOIN order_details od ON p.product_card_id = od.order_item_cardprod_id
+GROUP BY p.product_card_id, p.product_name
+ORDER BY total_profit DESC
+LIMIT 5</sql><sql name="Top Department">SELECT 
+	d.department_name,
+	dpo.Category_name, 
+	p.product_name,
+	SUM(od.order_profit_per_order) as total_profit,
+    COUNT(od.order_id) as total_orders,
+    SUM(od.order_item_quantity) as total_quantity_sold
+FROM departments d
+JOIN Department_Order dpo ON d.department_id = dpo.department_id
+JOIN order_details od ON dpo.Order_id = od.order_id
+JOIN products p ON od.order_item_cardprod_id = p.product_card_id
+GROUP by d.department_id, d.department_name
+order by total_profit DESC
+LIMIT 5</sql><sql name="Top customers">Select 
+    c.Customer_Name,
+	c.customer_country,
+	SUM(od.order_profit_per_order) as total_profit,
+	SUM(od.order_profit_per_order)*100/ (Select round(SUM(od.order_profit_per_order),2) as total_profit From order_details od) as Percetage_of_total,
+	COUNT(od.order_id) as total_orders,
+    SUM(od.order_item_quantity) as total_quantity_sold
+FROM customers c
+Join orders o ON c.customer_id = o.order_customer_id
+Join order_details od ON o.order_id = od.order_id
+GROUP BY c.customer_id, c.Customer_Name
+order by total_profit DESC
+LIMIT 10</sql><sql name="SQL 4">Select 
+	d.department_name,
+	p.product_name,
+	dpo.Category_name	
+FROM departments d
+JOIN Department_Order dpo ON d.department_id = dpo.department_id
+JOIN order_details od ON dpo.Order_id = od.order_id
+JOIN products p ON od.order_item_cardprod_id = p.product_card_id
+WHERE d.department_name = 'Discs Shop'
+GROUP BY dpo.Category_name</sql><sql name="Rates*">create table 'Order_Status' as
+SELECT 
+    order_status,
+    COUNT(*) AS count,
+    ROUND(100.0 * COUNT() / (SELECT COUNT() FROM orders), 2) AS percentage
+FROM orders
+GROUP BY order_status;</sql><sql name="Average Processing Time department wise">SELECT 
+	dpo.department_name,
+	round (avg((julianday(o.shipping_date_sqlite) - julianday(o.order_date_sqlite))), 0) as 'Average Processing Time'
+FROM orders o
+JOIN Department_Order dpo ON o.order_id = dpo.order_id
+GROUP BY dpo.department_name
+</sql><sql name="Cancelletion rate*">create table 'Cancellation_rate' as
+SELECT
+  round (100.0 * SUM(
+    CASE WHEN order_status = 'CANCELED' THEN 1 ELSE 0 END
+  ) / COUNT(*),2) AS order_cancellation_rate
+FROM orders;
+</sql><sql name="SQL 9*">create table 'Return_rates' as
+SELECT 
+  dpo.department_name,
+  COUNT(*) AS total_orders,
+  SUM(CASE WHEN o.order_status = 'SUSPECTED_FRAUD' THEN 1 ELSE 0 END) AS returned_orders,
+  ROUND(
+    100.0 * SUM(CASE WHEN o.order_status = 'SUSPECTED_FRAUD' THEN 1 ELSE 0 END) / COUNT(*), 
+    2
+  ) AS return_rate_percentage
+FROM Department_Order dpo
+JOIN orders o ON dpo.order_id = o.order_id
+GROUP BY department_name
+ORDER BY return_rate_percentage DESC;</sql><sql name="Suspected fraud*">create table 'Suspected_fraud' as
+SELECT
+  round (100.0 * SUM(
+    CASE WHEN order_status = 'SUSPECTED_FRAUD' THEN 1 ELSE 0 END
+  ) / COUNT(*),2) AS suspected_fraud_rate
+FROM orders;
+</sql><sql name="Delivery rate*">create table 'Delivery_rate' as
+SELECT
+  round (100.0 * SUM(
+    CASE WHEN order_status = 'COMPLETE' THEN 1 ELSE 0 END
+  ) / COUNT(*),2) + round (100.0 * SUM(
+    CASE WHEN order_status = 'CLOSED' THEN 1 ELSE 0 END
+  ) / COUNT(*),2) AS delivery_rate
+FROM orders;</sql><sql name="Total Orders across time*">create table 'Total_orders' as
+SELECT 
+	strftime('%m', order_date_sqlite) as month, 
+	count(order_id) as Total_orders
+FROM orders
+GROUP BY month;</sql><sql name="late delivery*">create table 'Late_delivery' as
+SELECT 
+	m.market,
+	dpo.department_name,
+	round(100 * count(case when s.delivery_status = 'Late delivery' then 1 end) / cast(count(*) as real),2) as late_delivery_rate
+FROM orders o
+JOIN shipping s ON o.order_id = s.order_id
+JOIN order_details od ON o.order_id = od.order_id
+JOIN Department_Order dpo ON od.order_id = dpo.order_id
+JOIN markets m ON o.market_id = m.market_id
+GROUP BY m.market, dpo.department_name
+ORDER BY late_delivery_rate DESC
+</sql><current_tab id="11"/></tab_sql></sqlb_project>
